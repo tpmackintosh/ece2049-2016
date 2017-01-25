@@ -1,101 +1,138 @@
+/************** ECE2049 DEMO CODE ******************/
+/**************  20 August 2016   ******************/
+/***************************************************/
+
 #include <msp430.h>
+
+/* Peripherals.c and .h are where the functions that implement
+ * the LEDs and keypad, etc are. It is often useful to organize
+ * your code by putting like functions together in files.
+ * You include the header associated with that file(s)
+ * into the main file of your project. */
 #include "peripherals.h"
 
-
- // Don’t remove any #include statements
-int play_pulse(); // Function to detect if '*' is pressed
 void playGame();
-void display5Aliens(char alien_arr, int sz);
+void countDown();
+void swDelay(long int n);
+void displayRow(const char *arr, int sz);
 
-char alien_arr = ['0','1','2','3','4','5']
-char curr_key; // Current key pressed
-long int counter;
+// Declare globals here
+int state = 0;
+// Main
+void main(void)
+{
+	WDTCTL = WDTPW | WDTHOLD;		// Stop watchdog timer
 
-void main(void) {
-   WDCTL = WDTPW | WDTHOLD; // Stop watchdog timer
-   // Useful code starts here
-   initLeds();
-   configDisplay();
-   configKeypad();
-   // Your setup code goes here!
-   // (Initialize variables, configure things, etc.)
-   enum GAME_STATE = {WAITING = 0 , PLAYING = 1};
-   int temp;
+    // Useful code starts here
+    initLeds();
 
-   enum GAME_STATE state = WAITING;
-   while(1) {
-       switch (state){
-         case WAITING:
-            // Intro screen display
-            GrClearDisplay(&g_sContext); // Clear the display
-            GrStringDrawCentered(&g_sContext, "SPACE INVADERS", AUTO_STRING_LENGTH, 48, 35, TRANSPARENT_TEXT);
-            GrStringDrawCentered(&g_sContext, "Press * to Play", AUTO_STRING_LENGTH, 48, 45, TRANSPARENT_TEXT);
-            GrFlush(&g_sContext);
+    configDisplay();
+    configKeypad();
 
-            temp = play_pulse(); //Output '0' if '*' pressed, '1' otherwise
+  	// *** Intro Screen ***
 
-            if (temp == 0){
-              state = PLAYING;
-            }
-            else{
-              state = WAITING;
-            }
-            break;
-         case PLAYING:
-            GrClearDisplay(&g_sContext); // Clear the display
+    GrClearDisplay(&g_sContext); // Clear the display
 
-            playGame(); //Executes game function, plays until loss
-            state = WAITING;
-            break;
-       }
-     }
+  	while(1){
+  		char curr_key = getKey();
+  		if(curr_key == '*'){
+  			state = 1;
+  		}
+  		switch (state){
+  		case 0:
+  			// Write some text to the display
+  		  	GrStringDrawCentered(&g_sContext, "SPACE INVADERS", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+  		  	GrFlush(&g_sContext);
+  		  	break;
+  		case 1:
+  			countDown();
+  			playGame();
+  			GrClearDisplay(&g_sContext);
+  			state = 0;
+  			break;
+  		}
+  	}
 }
 
-int play_pulse(){
-  int i;
-  curr_key = getKey();
-  if (curr_key == '*'){
-    return 0;
-  }
-  else{
-    return 1;
-  }
+void playGame(){
+	int y = 0; int aliens = 0;
+	long int counter = 0;
+	char row1[] = "1  2  3  4  5";
+	displayRow(row1,y);
+
+	while(1){
+		if (counter == 10000){
+			GrClearDisplay(&g_sContext);
+			y++;
+			if(y == 5){break;}
+			displayRow(row1,y);
+			counter = 0;
+		}
+		char curr_key = ' ';
+		curr_key = getKey();
+		counter++;
+
+		switch(curr_key){
+		case '1':
+					GrClearDisplay(&g_sContext);
+					// Check if row[x] == ' '
+					row1[0] = ' ';
+					aliens++;
+					displayRow(row1,y);
+					break;
+		case '2':
+					GrClearDisplay(&g_sContext);
+					row1[3] = ' ';
+					aliens++;
+					displayRow(row1,y);
+					break;
+		case '3':
+					GrClearDisplay(&g_sContext);
+					row1[6] = ' ';
+					aliens++;
+					displayRow(row1,y);
+					break;
+		case '4':
+					GrClearDisplay(&g_sContext);
+					row1[9] = ' ';
+					aliens++;
+					displayRow(row1,y);
+					break;
+		case '5':
+					GrClearDisplay(&g_sContext);
+					row1[12] = ' ';
+					aliens++;
+					displayRow(row1,y);
+					break;
+		}
+		if (aliens == 5){break;}
+	}
 }
 
-void playGame{
-  // 3 - 2 - 1 countdown
-  for(i = 3; i >= 1; i--){
-    GrStringDrawCentered(&g_sContext, i, AUTO_STRING_LENGTH, 48, 35, TRANSPARENT_TEXT);
-    GrFlush(&g_sContext);
-    for(counter = 0; counter <=40000; counter++){}
-  }
+void countDown(){
+	long int delay = 40000;
 
-  int counter = 0;
-  int y = 1;
-  int max_time = 40000;
-  char level1 = alien_arr
-
-  while(1){
-    curr_key = getKey();
-    display5Aliens(level1, 5, 16*y);
-    counter++;
-    if(counter == max_time){
-      y++;
-    }
-    for(i=0; i<5; i++){
-      if (curr_key == level1[i]){
-        level1[i] = NULL;
-      }
-      if (level1 == [NULL,NULL,NULL,NULL,NULL]){
-        break;
-      }
-    }
-  }
+	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "3", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrFlush(&g_sContext);
+	swDelay(delay);
+	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "2", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrFlush(&g_sContext);
+	swDelay(delay);
+	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "1", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrFlush(&g_sContext);
+	swDelay(delay);
+	GrClearDisplay(&g_sContext);
 }
 
-void display5Aliens(char alien_arr[], int sz, int y){
-  for(i=0;i<sz;i++){
-    GrStringDrawCentered(&g_sContext, alien_arr[i], AUTO_STRING_LENGTH, 16 + 0*16, y, TRANSPARENT_TEXT);
-    GrFlush(&g_sContext);
-  }
+void swDelay(long int n){
+	long int i;
+	for (i = 0; i< n; i++){}
+}
+
+void displayRow(const char *arr, int y){
+	GrStringDrawCentered(&g_sContext, arr, AUTO_STRING_LENGTH, 48, 16 + 16*y, TRANSPARENT_TEXT);
+	GrFlush(&g_sContext);
 }
