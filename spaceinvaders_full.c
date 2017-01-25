@@ -3,6 +3,8 @@
 /***************************************************/
 
 #include <msp430.h>
+#include <stdlib.h>
+#include <time.h>
 
 /* Peripherals.c and .h are where the functions that implement
  * the LEDs and keypad, etc are. It is often useful to organize
@@ -15,12 +17,14 @@ void playGame();
 void countDown();
 void swDelay(long int n);
 void displayRow(const char *arr, int sz);
+void loseBuzz;
 
 // Declare globals here
 int state = 0;
 // Main
 void main(void)
 {
+	srand(time(NULL));
 	WDTCTL = WDTPW | WDTHOLD;		// Stop watchdog timer
 
     // Useful code starts here
@@ -47,6 +51,7 @@ void main(void)
   		case 1:
   			countDown();
   			playGame();
+				loseBuzz();
   			GrClearDisplay(&g_sContext);
   			state = 0;
   			break;
@@ -57,15 +62,16 @@ void main(void)
 void playGame(){
 	int y = 0; int aliens = 0;
 	long int counter = 0;
-	char row1[] = "1  2  3  4  5";
-	displayRow(row1,y);
+	char base_row[] = "1  2  3  4  5";
+
+	displayRow(base_row,y);
 
 	while(1){
 		if (counter == 10000){
 			GrClearDisplay(&g_sContext);
 			y++;
 			if(y == 5){break;}
-			displayRow(row1,y);
+			displayRow(base_row,y);
 			counter = 0;
 		}
 		char curr_key = ' ';
@@ -76,33 +82,33 @@ void playGame(){
 		case '1':
 					GrClearDisplay(&g_sContext);
 					// Check if row[x] == ' '
-					row1[0] = ' ';
+					base_row[0] = ' ';
 					aliens++;
-					displayRow(row1,y);
+					displayRow(base_row,y);
 					break;
 		case '2':
 					GrClearDisplay(&g_sContext);
-					row1[3] = ' ';
+					base_row[3] = ' ';
 					aliens++;
-					displayRow(row1,y);
+					displayRow(base_row,y);
 					break;
 		case '3':
 					GrClearDisplay(&g_sContext);
-					row1[6] = ' ';
+					base_row[6] = ' ';
 					aliens++;
-					displayRow(row1,y);
+					displayRow(base_row,y);
 					break;
 		case '4':
 					GrClearDisplay(&g_sContext);
-					row1[9] = ' ';
+					base_row[9] = ' ';
 					aliens++;
-					displayRow(row1,y);
+					displayRow(base_row,y);
 					break;
 		case '5':
 					GrClearDisplay(&g_sContext);
-					row1[12] = ' ';
+					base_row[12] = ' ';
 					aliens++;
-					displayRow(row1,y);
+					displayRow(base_row,y);
 					break;
 		}
 		if (aliens == 5){break;}
@@ -135,4 +141,14 @@ void swDelay(long int n){
 void displayRow(const char *arr, int y){
 	GrStringDrawCentered(&g_sContext, arr, AUTO_STRING_LENGTH, 48, 16 + 16*y, TRANSPARENT_TEXT);
 	GrFlush(&g_sContext);
+}
+
+void loseBuzz(){
+	buzzerOn(void);
+	swDelay(1000);
+	buzzerOff(void);
+	swDelay(2000);
+	buzzerOn(void);
+	swDelay(2500);
+	buzzerOff(void);
 }
