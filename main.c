@@ -3,201 +3,108 @@
 /***************************************************/
 
 #include <msp430.h>
-#include <stdlib.h>
-#include <time.h>
-
-/* Peripherals.c and .h are where the functions that implement
- * the LEDs and keypad, etc are. It is often useful to organize
- * your code by putting like functions together in files.
- * You include the header associated with that file(s)
- * into the main file of your project. */
 #include "peripherals.h"
 
-void playGame();
-void countDown();
-void swDelay(long int n);
-void displayRow(const char *arr, int sz);
-void loseBuzz();
-char displayGrid(const char *arr1,const char *arr2,const char *arr3,const char *arr4,const char *arr5);
-void checkAlienKill(char* arr1,char* arr2,char* arr3,char* arr4,char* arr5, int column);
+// Function prototypes
 
-// Declare globals here
-int state = 0;
-// Main
-void main(void)
-{
-	srand(time(NULL));
+struct Notes{
+		char pitch;
+		int duration;
+};
+
+void countDown(void);
+void swDelay(long int n);
+void BuzzerOnPitch(char pitch);
+char playNote(char pitch, char dur);
+void configTA2(void);
+void letsShred(void);
+void initSW(void);
+char swState(void);
+void playerWin(void);
+void playerLose(void);
+
+long unsigned int timer = 0;
+char lose_cnt = 0;
+
+void main(void){
 	WDTCTL = WDTPW | WDTHOLD;		// Stop watchdog timer
 
-    // Useful code starts here
+    // Config
     initLeds();
-
     configDisplay();
     configKeypad();
+    initSW();
 
-  	// *** Intro Screen ***
-    long int music_count = 0;
+    // Declare variables
+    char state = 0;
+
+
     GrClearDisplay(&g_sContext); // Clear the display
 
-  	while(1){
-  		char curr_key = getKey();
-  		if(curr_key == '*'){
-  			state = 1;
-  		}
+    _BIS_SR(GIE);
 
-  		switch (state){
-  		case 0:
-  			// Write some text to the display
-  		  	GrStringDrawCentered(&g_sContext, "SPACE INVADERS", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
-  		  	GrStringDrawCentered(&g_sContext, "Press * to Play", AUTO_STRING_LENGTH, 48, 64, TRANSPARENT_TEXT);
-  		  	GrFlush(&g_sContext);
+      	while(1){
+      		char curr_key = getKey();
+      		if(curr_key == '*'){
+      			state = 1;
+      		}
 
-//  		  	music_count++;
-//  		  	if(music_count <= 1000){
-//  		  		BuzzerOn(1/4);
-//  		  	}
-//  		  	if(music_count > 1000){
-//  		  		BuzzerOff();
-//  		  		BuzzerOn(1);
-//  		  	}
-//  		  	if(music_count > 1500){
-//  		  		BuzzerOff();
-//  		  		music_count = 0;
-//  		  	}
+      		switch (state){
+      		case 0: // Welcome screen
+      			// Write some text to the display
+      		  	GrStringDrawCentered(&g_sContext, "MSP430 HERO", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
+      		  	GrStringDrawCentered(&g_sContext, "Press * to Play", AUTO_STRING_LENGTH, 48, 64, OPAQUE_TEXT);
+      		  	GrFlush(&g_sContext);
+      		  	break;
+      		case 1:
+      			countDown();
+      			letsShred();
+      			BuzzerOff();
+      			state = 0;
+      			break;
 
-  		  	break;
-  		case 1:
-  			BuzzerOff();
-  			countDown();
-  			playGame();
-  			GrClearDisplay(&g_sContext);
-  			GrStringDrawCentered(&g_sContext, "GAME OVER", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
-  			GrFlush(&g_sContext);
-  			swDelay(50000);
-  			GrClearDisplay(&g_sContext);
-  			state = 0;
-  			loseBuzz();
-  			break;
-  		}
-  	}
+      		}
+      	}
 }
 
-void playGame(){
-	int i;
-	int done = 0;
-	int difficulty = 8;
-	long int up_diff = 0;
-	long int counter_max = 20000;
-	long int counter = 0;
-	char row_preload[] = "             ";
-	char row1[] = "             ";
-	char row2[] = "             ";
-	char row3[] = "             ";
-	char row4[] = "             ";
-	char row5[] = "             ";
-	char row_check[] = "             ";
-
-	//char rand_arr[13];
-
-	for(i=0; i<5; i++){
-		if(rand()%difficulty == 1){
-			row_preload[3*i] = '1';
-		}
-	}
-
-
-
-	displayGrid(row1,row2,row3,row4,row5);
-
-	while(1){
-		up_diff++;
-		if (up_diff == 40000){
-			if(difficulty > 4){
-				difficulty--;
-			}
-			up_diff = 0;
-			counter_max /= 1.5;
-		}
-
-		if (counter >= counter_max){
-			GrClearDisplay(&g_sContext);
-			// Switch all rows
-			for (i = 0; i < 13; i++){
-			row5[i] = row4[i];
-			row4[i] = row3[i];
-			row3[i] = row2[i];
-			row2[i] = row1[i];
-			row1[i] = row_preload[i];
-			}
-			// Need to randomize PL
-			for(i=0; i<5; i++){
-				if(rand()%difficulty == 1){
-					row_preload[3*i] = '1';
-				}
-			}
-			if(done == 1){
-				break;
-			}
-			for(i = 0; i<13; i++){
-				if(row5[i] != row_check[i]){
-					done = 1;
-				}
-			}
-
-			displayGrid(row1,row2,row3,row4,row5);
-
-			counter = 0;
-		}
-		char curr_key = ' ';
-		curr_key = getKey();
-		counter++;
-
-		switch(curr_key){
-		case '1':
-				GrClearDisplay(&g_sContext);
-				checkAlienKill(row1,row2,row3,row4,row5,0);
-				displayGrid(row1,row2,row3,row4,row5);
-				break;
-		case '2':
-				GrClearDisplay(&g_sContext);
-				checkAlienKill(row1,row2,row3,row4,row5,1);
-				displayGrid(row1,row2,row3,row4,row5);
-				break;
-		case '3':
-				GrClearDisplay(&g_sContext);
-				checkAlienKill(row1,row2,row3,row4,row5,2);
-				displayGrid(row1,row2,row3,row4,row5);
-				break;
-		case '4':
-				GrClearDisplay(&g_sContext);
-				checkAlienKill(row1,row2,row3,row4,row5,3);
-				displayGrid(row1,row2,row3,row4,row5);
-				break;
-		case '5':
-				GrClearDisplay(&g_sContext);
-				checkAlienKill(row1,row2,row3,row4,row5,4);
-				displayGrid(row1,row2,row3,row4,row5);
-				break;
-		}
-	}
-}
-
-void countDown(){
+void countDown(void){
 	long int delay = 40000;
 
 	GrClearDisplay(&g_sContext);
-	GrStringDrawCentered(&g_sContext, "3", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrStringDrawCentered(&g_sContext, "3", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
 	GrFlush(&g_sContext);
+	setLeds(BIT3);
+	BuzzerOnPitch(66);
 	swDelay(delay);
+
 	GrClearDisplay(&g_sContext);
-	GrStringDrawCentered(&g_sContext, "2", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrStringDrawCentered(&g_sContext, "2", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
+	BuzzerOff();
+	BuzzerOnPitch(66);
 	GrFlush(&g_sContext);
+	setLeds(BIT2);
 	swDelay(delay);
+
 	GrClearDisplay(&g_sContext);
-	GrStringDrawCentered(&g_sContext, "1", AUTO_STRING_LENGTH, 48, 48, TRANSPARENT_TEXT);
+	GrStringDrawCentered(&g_sContext, "1", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
+	BuzzerOff();
+	BuzzerOnPitch(66);
 	GrFlush(&g_sContext);
+	setLeds(BIT1);
 	swDelay(delay);
+
 	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "GO", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
+	BuzzerOff();
+	BuzzerOnPitch(63);
+	GrFlush(&g_sContext);
+	setLeds(0x0F);
+	swDelay(delay);
+
+	GrClearDisplay(&g_sContext);
+	BuzzerOff();
+
+	setLeds(0x00);
 }
 
 void swDelay(long int n){
@@ -205,43 +112,194 @@ void swDelay(long int n){
 	for (i = 0; i< n; i++){}
 }
 
-void displayRow(const char *arr, int y){
-	GrStringDrawCentered(&g_sContext, arr, AUTO_STRING_LENGTH, 48, 16 + 16*y, TRANSPARENT_TEXT);
+void BuzzerOnPitch(char pitch)
+{
+	// Initialize PWM output on P3.5, which corresponds to TB0.5
+	P3SEL |= BIT5; // Select peripheral output mode for P3.5
+	P3DIR |= BIT5;
+
+	TB0CTL  = (TBSSEL__ACLK|ID__1|MC__UP);  // Configure Timer B0 to use ACLK, divide by 1, up mode
+	TB0CTL  &= ~TBIE; 						// Explicitly Disable timer interrupts for safety
+
+	// Now configure the timer period, which controls the PWM period
+	// Doing this with a hard coded values is NOT the best method
+	// We do it here only as an example. You will fix this in Lab 2.
+	TB0CCR0   = pitch; 					// Set the PWM period in ACLK ticks, original 128
+	TB0CCTL0 &= ~CCIE;					// Disable timer interrupts
+
+	// Configure CC register 5, which is connected to our PWM pin TB0.5
+	TB0CCTL5  = OUTMOD_7;					// Set/reset mode for PWM
+	TB0CCTL5 &= ~CCIE;						// Disable capture/compare interrupts
+	TB0CCR5   = TB0CCR0/2; 					// Configure a 50% duty cycle
 }
 
-void loseBuzz(){
-	BuzzerOn(1);
-	swDelay(10000);
-	BuzzerOff();
-	swDelay(2000);
-	BuzzerOn(1);
-	swDelay(25000);
-	BuzzerOff();
+void letsShred(void){
+
+	char D = 56;
+	char E = 50;
+	char G = 42;
+	char F = 47;
+	char Fs = 44;
+	char A = 37;
+	char D_hi = 31;
+	char B_hi = 34;
+	char C_hi = 32;
+
+	char pitch_arr_song1[] = {D, D, E, D, G, Fs, D, D ,E, D, A, G, D, D, D_hi, B_hi, G, Fs, E, C_hi, C_hi, B_hi, G, A, G};
+	char dur_arr_song1[] = {1, 1, 2, 2, 2, 4, 1, 1, 2, 2, 2, 4, 1, 1, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 4};
+	int i;
+
+	// Playing song:
+	char temp = 0;
+	for(i = 0; i < 25; i++){
+		temp = playNote(pitch_arr_song1[i], dur_arr_song1[i]);
+
+		if(temp == 1){
+			break;
+		}
+		if(temp == 2){
+			playerLose();
+			break;
+		}
+		if(i==24){
+			playerWin();
+		}
+	}
 }
 
-char displayGrid(const char *arr1,const char *arr2,const char *arr3,const char *arr4,const char *arr5){
-	displayRow(arr1,0);
-	displayRow(arr2,1);
-	displayRow(arr3,2);
-	displayRow(arr4,3);
-	displayRow(arr5,4);
+char playNote(char pitch, char dur){
+	BuzzerOnPitch(pitch);
+	//int counter = 0;
+	char sw = 0;
+	timer = 0;
+	char buttcheck = 0;
+
+	if(pitch == 56 | pitch == 44 | pitch == 32){
+		setLeds(BIT3);
+		buttcheck = BIT0; // SW1
+	}
+	if(pitch == 50 | pitch == 37){
+		setLeds(BIT2);
+		buttcheck = BIT6; // SW2
+	}
+	if(pitch == 42 | pitch == 31){
+		setLeds(BIT1);
+		buttcheck = BIT2; // SW3
+	}
+	if(pitch == 47 | pitch == 34){
+		setLeds(BIT0); // SW4
+		buttcheck = BIT4;
+	}
+	char temp = 0;
+
+	while(1){
+		char curr_sw = swState();
+		char curr_key = getKey();
+
+		if (curr_sw == buttcheck){
+			temp = 1;
+		}
+		if(sw == 0){
+			configTA2();
+			sw = 1;
+		}
+		if(timer > dur * 500){ // 1/8th note ~ 0.5 sec
+			BuzzerOff();
+			if(!temp){
+				BuzzerOnPitch(254);
+				timer=0;
+				while (timer < 100){}
+				timer = 0;
+				lose_cnt++;
+				if(lose_cnt == 5){
+					return 2;
+				}
+			}
+			timer=0;
+			setLeds(0x00);
+			while (timer < 100){}
+			timer = 0;
+			return 0;
+		}
+		if(curr_key == '#'){
+			setLeds(0x00);
+			return 1;
+		}
+	}
+}
+
+void configTA2(void){
+	TA2CTL  = (TASSEL_1 + MC_1 + ID_0);  // Configure Timer A2 to use ACLK, divide by 1, up mode
+	TA2CCR0 = 33;							// 32+1 = 33 ACLK ticks ~0.001 sec
+	TA2CCTL0  = CCIE; 						// Explicitly enable timer
+}
+
+#pragma vector=TIMER2_A0_VECTOR
+__interrupt void TimerA2_ISR (void){
+	timer++;
+}
+
+void initSW(void){
+	P7SEL &= ~(BIT0 | BIT4);
+	P7DIR &= ~(BIT0 | BIT4);
+	P7REN |= (BIT0 | BIT4);
+	P7OUT |= (BIT0 | BIT4);
+
+	P3SEL &= ~(BIT6);
+	P3DIR &= ~(BIT6);
+	P3REN |= (BIT6);
+	P3OUT |= (BIT6);
+
+	P2SEL &= ~(BIT2);
+	P2DIR &= ~(BIT2);
+	P2REN |= (BIT2);
+	P2OUT |= (BIT2);
+}
+
+char swState(void){
+	//unsigned char state = 0x00;
+	unsigned char mask = 0x00;
+	// 0x01, 0x04, 0x10, 0x40 	0100 0100
+	//state = (P7IN  P3IN & P2IN);
+
+	if(~P7IN & BIT0){ // SW1
+		mask |= BIT0; //
+	}
+	if(~P2IN & BIT2){ // SW3
+		mask |= BIT2;
+	}
+	if(~P7IN & BIT4){ // SW4
+		mask |= BIT4;
+	}
+	if(~P3IN & BIT6){ // SW2
+		mask |= BIT6;
+	}
+
+	return mask;
+}
+
+void playerWin(void){
+	BuzzerOnPitch(20);
+	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "YOU WIN!!!!!", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
 	GrFlush(&g_sContext);
+	timer=0;
+	setLeds(0x0F);
+	while (timer < 2000){}
+	timer = 0;
+	BuzzerOff();
+	setLeds(0x00);
 }
 
-void checkAlienKill(char* arr1,char* arr2,char* arr3,char* arr4,char* arr5, int column){
-	if(arr5[column*3] != ' '){
-		arr5[column*3] = ' ';
-	}
-	else if(arr4[column*3] != ' '){
-		arr4[column*3] = ' ';
-	}
-	else if(arr3[column*3] != ' '){
-		arr3[column*3] = ' ';
-	}
-	else if(arr2[column*3] != ' '){
-		arr2[column*3] = ' ';
-	}
-	else if(arr1[column*3] != ' '){
-		arr1[column*3] = ' ';
-	}
+void playerLose(void){
+	BuzzerOnPitch(254);
+	GrClearDisplay(&g_sContext);
+	GrStringDrawCentered(&g_sContext, "YOU lose", AUTO_STRING_LENGTH, 48, 48, OPAQUE_TEXT);
+	GrFlush(&g_sContext);
+	timer=0;
+	setLeds(0x0F);
+	while (timer < 2000){}
+	timer = 0;
+	BuzzerOff();
+	setLeds(0x00);
 }
